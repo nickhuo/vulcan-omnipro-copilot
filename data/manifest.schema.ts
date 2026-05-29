@@ -85,11 +85,20 @@ export const SelectionChartData = z.object({
   ),
 });
 
+/** Device-generic structured data. A newly-ingested device that has no welder-style
+ *  semantics uses this (or omits `data` entirely — `data` is optional, so a plain
+ *  figure with image + caption + citation validates and renders as a FigureCard). */
+export const GenericData = z.object({
+  kind: z.literal("generic"),
+  fields: z.record(z.string(), z.unknown()).optional(),
+});
+
 export const FigureData = z.discriminatedUnion("kind", [
   DutyCycleData,
   PolarityData,
   TroubleshootingData,
   SelectionChartData,
+  GenericData,
 ]);
 
 export const FigureSchema = z.object({
