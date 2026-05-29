@@ -20,3 +20,7 @@ __pycache__/
 # os
 .DS_Store
 .gstack/
+
+# vision proposals (ephemeral per-run; accepted figures live in figures/)
+public/tenants/*/proposals/
+data/tenants/*/proposals.json
