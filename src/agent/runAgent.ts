@@ -21,7 +21,11 @@ const TOOL_NAMES = [
  * `emit`. Tool handlers (built with the same `emit`) push structured component
  * frames as they fire. Resolves when the agent finishes the turn.
  */
-export async function runAgent(prompt: string, emit: (f: StreamFrame) => void): Promise<void> {
+export async function runAgent(
+  prompt: string,
+  emit: (f: StreamFrame) => void,
+  signal?: AbortSignal,
+): Promise<void> {
   const manualServer = createSdkMcpServer({
     name: "manual",
     version: "1.0.0",
@@ -45,6 +49,9 @@ export async function runAgent(prompt: string, emit: (f: StreamFrame) => void): 
         maxTurns: 12,
       },
     })) {
+      // Client disconnected: break the loop so the SDK tears down its subprocess
+      // instead of running the full turn and burning tokens with no consumer.
+      if (signal?.aborted) break;
       if (message.type === "stream_event") {
         const event = message.event;
         if (event.type === "content_block_start" && event.content_block.type === "tool_use") {
@@ -70,7 +77,11 @@ export async function runAgent(prompt: string, emit: (f: StreamFrame) => void): 
       emit({ type: "text_delta", text: resultText });
     }
   } catch (err) {
-    emit({ type: "error", message: err instanceof Error ? err.message : String(err) });
+    // Log the real error server-side; never leak internal paths/config to the client.
+    console.error("[runAgent] error:", err);
+    if (!signal?.aborted) {
+      emit({ type: "error", message: "Something went wrong answering that. Please try again." });
+    }
   } finally {
     emit({ type: "done" });
   }

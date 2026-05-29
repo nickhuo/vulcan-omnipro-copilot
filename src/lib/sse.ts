@@ -22,9 +22,21 @@ export async function* parseFrames(
     while ((nl = buffer.indexOf("\n")) >= 0) {
       const line = buffer.slice(0, nl).trim();
       buffer = buffer.slice(nl + 1);
-      if (line) yield JSON.parse(line) as StreamFrame;
+      const frame = safeParse(line);
+      if (frame) yield frame;
     }
   }
-  const tail = buffer.trim();
-  if (tail) yield JSON.parse(tail) as StreamFrame;
+  const frame = safeParse(buffer.trim());
+  if (frame) yield frame;
+}
+
+/** A truncated connection or a proxy error page can inject non-JSON into the
+ *  body. Skip unparseable lines instead of crashing the whole client stream. */
+function safeParse(line: string): StreamFrame | null {
+  if (!line) return null;
+  try {
+    return JSON.parse(line) as StreamFrame;
+  } catch {
+    return null;
+  }
 }

@@ -28,6 +28,7 @@ export default function Chat() {
 
   function patchLast(fn: (m: Msg) => Msg) {
     setMessages((prev) => {
+      if (prev.length === 0) return prev;
       const next = [...prev];
       next[next.length - 1] = fn(next[next.length - 1]);
       return next;
