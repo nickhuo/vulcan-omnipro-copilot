@@ -1,0 +1,22 @@
+# dependencies
+/node_modules
+extraction/.venv
+
+# next
+/.next
+/out
+next-env.d.ts
+*.tsbuildinfo
+
+# env
+.env
+.env*.local
+
+# extraction intermediates (committed outputs live in public/manual + data/)
+extraction/.cache
+__pycache__/
+*.pyc
+
+# os
+.DS_Store
+.gstack/
