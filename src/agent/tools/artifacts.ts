@@ -5,19 +5,19 @@ import type { StreamFrame } from "../../lib/types";
 
 type Emit = (frame: StreamFrame) => void;
 
-function byKind<K extends string>(kind: K) {
-  return getManifest().figures.filter((f) => f.data?.kind === kind);
+function byKind(tenantId: string, kind: string) {
+  return getManifest(tenantId).figures.filter((f) => f.data?.kind === kind);
 }
 
 /** Artifact tools return structured props (a curated React component renders them).
  *  All values are copied from the manifest — never invented. */
-export function artifactTools(emit: Emit) {
+export function artifactTools(tenantId: string, emit: Emit) {
   const polarityTool = tool(
     "render_polarity_diagram",
     "Render an interactive polarity setup diagram for a welding process, showing which cable goes in which socket (DCEP vs DCEN), alongside the real manual figure. Use for any question about polarity, electrode positive/negative, or which socket a cable plugs into. The manual specifies polarity for MIG and FluxCore only.",
     { process: z.enum(["MIG", "FluxCore", "TIG", "Stick"]).describe("Welding process") },
     async (args) => {
-      const fig = byKind("polarity").find(
+      const fig = byKind(tenantId, "polarity").find(
         (f) => f.data?.kind === "polarity" && f.data.process === args.process,
       );
       if (!fig || fig.data?.kind !== "polarity") {
@@ -65,7 +65,7 @@ export function artifactTools(emit: Emit) {
     "Render an interactive duty-cycle calculator for a process. The user drags amperage/voltage and the matching cell is highlighted live on the real manual specifications page. Use for any duty-cycle, 'how long can I weld', amperage, or overheating question.",
     { process: z.enum(["MIG", "TIG", "Stick"]).describe("Welding process") },
     async (args) => {
-      const fig = byKind("duty_cycle_matrix").find(
+      const fig = byKind(tenantId, "duty_cycle_matrix").find(
         (f) => f.data?.kind === "duty_cycle_matrix" && f.data.process === args.process,
       );
       if (!fig || fig.data?.kind !== "duty_cycle_matrix") {
@@ -99,7 +99,7 @@ export function artifactTools(emit: Emit) {
       symptom: z.string().describe("The defect or symptom, e.g. 'porosity' or 'unstable arc'"),
     },
     async (args) => {
-      const figs = byKind("troubleshooting");
+      const figs = byKind(tenantId, "troubleshooting");
       const q = args.symptom.toLowerCase();
       const terms = q.split(/\s+/).filter((t) => t.length > 3);
       const symptomText = (f: (typeof figs)[number]) =>
@@ -150,7 +150,7 @@ export function artifactTools(emit: Emit) {
     "Render an interactive process selector from the welding selection chart. The user picks material, thickness, and gas availability and sees which process(es) fit. Use for 'which process should I use', 'what settings for [material]', or process-choice questions.",
     {},
     async () => {
-      const fig = byKind("selection_chart")[0];
+      const fig = byKind(tenantId, "selection_chart")[0];
       if (!fig || fig.data?.kind !== "selection_chart") {
         return { content: [{ type: "text", text: "No selection chart available." }], isError: true };
       }

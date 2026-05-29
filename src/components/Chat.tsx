@@ -20,7 +20,7 @@ const STARTERS = [
   "What's the duty cycle for MIG welding at 200A on 240V?",
 ];
 
-export default function Chat() {
+export default function Chat({ tenantId }: { tenantId: string }) {
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
@@ -49,7 +49,7 @@ export default function Chat() {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ prompt }),
+        body: JSON.stringify({ prompt, tenantId }),
       });
       if (!res.ok || !res.body) {
         const err = await res.json().catch(() => ({ error: res.statusText }));
