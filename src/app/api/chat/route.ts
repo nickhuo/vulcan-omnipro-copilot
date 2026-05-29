@@ -7,6 +7,8 @@ import type { StreamFrame } from "@/lib/types";
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
+const MAX_PROMPT_CHARS = 4000;
+
 export async function POST(req: Request) {
   let prompt = "";
   try {
@@ -23,6 +25,14 @@ export async function POST(req: Request) {
     });
   }
 
+  // Cap prompt size: each request spends Anthropic tokens, so reject oversized input.
+  if (prompt.length > MAX_PROMPT_CHARS) {
+    return new Response(
+      JSON.stringify({ error: `Question too long (max ${MAX_PROMPT_CHARS} characters).` }),
+      { status: 413, headers: { "content-type": "application/json" } },
+    );
+  }
+
   if (!process.env.ANTHROPIC_API_KEY) {
     return new Response(JSON.stringify({ error: "ANTHROPIC_API_KEY is not set. Copy .env.example to .env and add your key." }), {
       status: 500,
@@ -30,19 +40,32 @@ export async function POST(req: Request) {
     });
   }
 
+  // Aborted when the client disconnects, so runAgent can stop the SDK turn
+  // instead of burning tokens with no consumer.
+  const ac = new AbortController();
+
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
       let closed = false;
       const emit = (frame: StreamFrame) => {
         if (closed) return;
-        controller.enqueue(encodeFrame(frame));
+        try {
+          controller.enqueue(encodeFrame(frame));
+        } catch {
+          // Controller already closed/errored (e.g. client gone) — stop emitting.
+          closed = true;
+          return;
+        }
         if (frame.type === "done") {
           closed = true;
           controller.close();
         }
       };
-      await runAgent(prompt, emit);
+      await runAgent(prompt, emit, ac.signal);
       // runAgent always emits a final `done`, which closes the controller above.
+    },
+    cancel() {
+      ac.abort();
     },
   });
 
