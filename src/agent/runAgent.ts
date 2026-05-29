@@ -24,12 +24,13 @@ const TOOL_NAMES = [
 export async function runAgent(
   prompt: string,
   emit: (f: StreamFrame) => void,
+  tenantId: string,
   signal?: AbortSignal,
 ): Promise<void> {
   const manualServer = createSdkMcpServer({
     name: "manual",
     version: "1.0.0",
-    tools: [...retrievalTools(emit), ...artifactTools(emit)],
+    tools: [...retrievalTools(tenantId, emit), ...artifactTools(tenantId, emit)],
   });
 
   let streamedText = false;
@@ -40,7 +41,7 @@ export async function runAgent(
       prompt,
       options: {
         model: MODEL,
-        systemPrompt: buildSystemPrompt(),
+        systemPrompt: buildSystemPrompt(tenantId),
         mcpServers: { manual: manualServer },
         allowedTools: TOOL_NAMES.map((n) => `mcp__manual__${n}`),
         // No project scanning, no CLAUDE.md, no built-in file tools.

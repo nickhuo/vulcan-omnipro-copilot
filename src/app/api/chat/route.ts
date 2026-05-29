@@ -1,4 +1,5 @@
 import { runAgent } from "@/agent/runAgent";
+import { DEFAULT_TENANT, tenantExists } from "@/agent/manifest";
 import { encodeFrame } from "@/lib/sse";
 import type { StreamFrame } from "@/lib/types";
 
@@ -11,11 +12,24 @@ const MAX_PROMPT_CHARS = 4000;
 
 export async function POST(req: Request) {
   let prompt = "";
+  let tenantId = DEFAULT_TENANT;
   try {
     const body = await req.json();
     prompt = typeof body?.prompt === "string" ? body.prompt.trim() : "";
+    if (typeof body?.tenantId === "string" && body.tenantId.trim()) {
+      tenantId = body.tenantId.trim();
+    }
   } catch {
     /* fall through to empty-prompt guard */
+  }
+
+  // Validate the tenant before doing any work: an unknown/malformed id (incl. path
+  // traversal attempts) gets a clean 404 instead of an unhandled 500 in the stream.
+  if (!tenantExists(tenantId)) {
+    return new Response(JSON.stringify({ error: `Unknown tenant: ${tenantId}` }), {
+      status: 404,
+      headers: { "content-type": "application/json" },
+    });
   }
 
   if (!prompt) {
@@ -61,7 +75,7 @@ export async function POST(req: Request) {
           controller.close();
         }
       };
-      await runAgent(prompt, emit, ac.signal);
+      await runAgent(prompt, emit, tenantId, ac.signal);
       // runAgent always emits a final `done`, which closes the controller above.
     },
     cancel() {

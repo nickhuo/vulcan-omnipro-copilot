@@ -7,6 +7,7 @@
  * Needs ANTHROPIC_API_KEY in .env.  Run: bun run verify
  */
 import { runAgent } from "../src/agent/runAgent";
+import { DEFAULT_TENANT } from "../src/agent/manifest";
 import type { StreamFrame, ToolOutput } from "../src/lib/types";
 
 interface Case {
@@ -57,11 +58,15 @@ async function runOne(c: Case) {
   let text = "";
   const tools: string[] = [];
   const artifacts: string[] = [];
-  await runAgent(c.q, (f: StreamFrame) => {
-    if (f.type === "text_delta") text += f.text;
-    else if (f.type === "tool_call") tools.push(f.name);
-    else if (f.type === "tool_result") artifacts.push(f.output.component);
-  });
+  await runAgent(
+    c.q,
+    (f: StreamFrame) => {
+      if (f.type === "text_delta") text += f.text;
+      else if (f.type === "tool_call") tools.push(f.name);
+      else if (f.type === "tool_result") artifacts.push(f.output.component);
+    },
+    DEFAULT_TENANT,
+  );
 
   const checks: [string, boolean][] = [];
   if (c.expectTool) checks.push([`calls ${c.expectTool}`, tools.includes(c.expectTool)]);

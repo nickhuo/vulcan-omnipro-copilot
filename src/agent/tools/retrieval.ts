@@ -7,13 +7,13 @@ type Emit = (frame: StreamFrame) => void;
 
 /** Retrieval tools read the committed manifest. They emit a renderable frame to the
  *  browser AND return a text summary so Claude knows what it surfaced. */
-export function retrievalTools(emit: Emit) {
+export function retrievalTools(tenantId: string, emit: Emit) {
   const getFigureTool = tool(
     "get_figure",
     "Surface a specific manual figure, diagram, schematic, or photo by its exact id. Use this to SHOW the user the real manual image instead of only describing it. Returns the figure and renders it in the UI with its caption and page citation.",
     { id: z.string().describe("The exact figure id from the catalog, e.g. 'fig-polarity-flux'") },
     async (args) => {
-      const fig = getFigure(args.id);
+      const fig = getFigure(tenantId, args.id);
       if (!fig) {
         return {
           content: [{ type: "text", text: `No figure with id "${args.id}". Pick an id from the catalog.` }],
@@ -53,14 +53,14 @@ export function retrievalTools(emit: Emit) {
       page: z.number().int().positive().describe("1-based page number"),
     },
     async (args) => {
-      const pg = getPage(args.doc, args.page);
+      const pg = getPage(tenantId, args.doc, args.page);
       if (!pg) {
         return {
           content: [{ type: "text", text: `No page ${args.page} in "${args.doc}".` }],
           isError: true,
         };
       }
-      const citation = `${docTitle(pg.doc)}, p.${pg.page}`;
+      const citation = `${docTitle(tenantId, pg.doc)}, p.${pg.page}`;
       emit({
         type: "tool_result",
         name: "get_page_image",
@@ -84,7 +84,7 @@ export function retrievalTools(emit: Emit) {
       topK: z.number().int().positive().max(10).optional().describe("Max results (default 5)"),
     },
     async (args) => {
-      const hits = searchManual(args.query, args.topK ?? 5);
+      const hits = searchManual(tenantId, args.query, args.topK ?? 5);
       if (hits.length === 0) {
         return { content: [{ type: "text", text: `No matches for "${args.query}".` }] };
       }
