@@ -92,9 +92,10 @@ The Agent SDK spawns a bundled engine subprocess, so deploy to a **long-running 
 | `src/agent/` | Agent loop, system prompt, manifest loader, MCP tools |
 | `src/components/` | Chat UI + curated artifact components |
 | `src/app/api/chat/route.ts` | Streaming NDJSON endpoint |
-| `data/manifest.json` + `manifest.schema.ts` | The committed knowledge base + its zod schema |
-| `public/manual/` | Committed page renders + figure crops |
-| `extraction/` | Offline PyMuPDF pipeline (uv) |
+| `data/tenants/<id>/manifest.json` + `manifest.schema.ts` | Per-tenant knowledge base + its zod schema |
+| `public/tenants/<id>/` | Committed page renders + figure crops, per tenant |
+| `src/app/t/[tenantId]/` | Per-tenant copilot route (the welder is `vulcan-omnipro-220`; `/` defaults to it) |
+| `extraction/` | Offline PyMuPDF pipeline (uv): `extract.py` (welder), `ingest.py` (onboard a new tenant), `bbox_snap.py` |
 | `scripts/verify-grounding.ts` | The 5/5 grounding test |
 
 ## Stack

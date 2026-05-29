@@ -15,7 +15,7 @@ Contract:
   pdf-dir  : a folder containing one or more .pdf files
 Exit codes:
   0 success | 2 bad arguments | 3 no PDFs found | 4 tenant id invalid
-Outputs (promoted atomically from a staging dir on success):
+Outputs (promoted from a staging dir on success, pages written before manifest):
   data/tenants/<id>/manifest.json
   public/tenants/<id>/pages/<doc>-page-NNN.png
 """
@@ -83,17 +83,37 @@ def render_doc(doc_id: str, title: str, pdf_path: Path, pages_dir: Path, dpi: in
 
 
 def main(argv: list[str]) -> int:
-    args = [a for a in argv if not a.startswith("--")]
-    flags = {a for a in argv if a.startswith("--")}
+    # Parse flags, accepting both `--dpi N` (space) and `--dpi=N` forms.
+    args: list[str] = []
+    dry_run = False
     dpi = 150
-    for a in argv:
-        if a.startswith("--dpi"):
+    i = 0
+    while i < len(argv):
+        a = argv[i]
+        if a == "--dry-run":
+            dry_run = True
+        elif a == "--dpi":
+            i += 1
+            if i >= len(argv):
+                print("ERROR: --dpi requires a value", file=sys.stderr)
+                return 2
+            try:
+                dpi = int(argv[i])
+            except ValueError:
+                print("ERROR: --dpi requires an integer", file=sys.stderr)
+                return 2
+        elif a.startswith("--dpi="):
             try:
                 dpi = int(a.split("=", 1)[1])
-            except (IndexError, ValueError):
-                print("ERROR: --dpi=N requires an integer", file=sys.stderr)
+            except ValueError:
+                print("ERROR: --dpi= requires an integer", file=sys.stderr)
                 return 2
-    dry_run = "--dry-run" in flags
+        elif a.startswith("--"):
+            print(f"ERROR: unknown flag {a}", file=sys.stderr)
+            return 2
+        else:
+            args.append(a)
+        i += 1
 
     if len(args) != 2:
         print(__doc__)
@@ -117,8 +137,15 @@ def main(argv: list[str]) -> int:
 
     documents: list[dict] = []
     all_pages: list[dict] = []
+    seen_ids: set[str] = set()
     for pdf in pdfs:
         doc_id = slugify(pdf.stem)
+        if doc_id in seen_ids:  # two stems collide after slugify — suffix instead of clobbering
+            base, n = doc_id, 2
+            while f"{base}-{n}" in seen_ids:
+                n += 1
+            doc_id = f"{base}-{n}"
+        seen_ids.add(doc_id)
         title = pdf.stem.replace("-", " ").replace("_", " ").title()
         pages = render_doc(doc_id, title, pdf, pages_dir, dpi)
         documents.append({"id": doc_id, "title": title, "pageCount": len(pages)})
@@ -150,10 +177,12 @@ def main(argv: list[str]) -> int:
     pub_dest = ROOT / "public" / "tenants" / tenant_id
     data_dest.mkdir(parents=True, exist_ok=True)
     pub_dest.mkdir(parents=True, exist_ok=True)
-    (data_dest / "manifest.json").write_text((staging / "manifest.json").read_text())
+    # Pages first, manifest last: a crash mid-promote never leaves a manifest
+    # that references PNGs which aren't on disk yet.
     if (pub_dest / "pages").exists():
         shutil.rmtree(pub_dest / "pages")
     shutil.copytree(pages_dir, pub_dest / "pages")
+    (data_dest / "manifest.json").write_text((staging / "manifest.json").read_text())
     shutil.rmtree(staging)
     print(f"Promoted -> {data_dest / 'manifest.json'} and {pub_dest / 'pages'}/")
     print(f"Serve at /t/{tenant_id}")
