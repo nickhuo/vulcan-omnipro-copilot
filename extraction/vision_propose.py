@@ -137,7 +137,16 @@ def main(argv: list[str]) -> int:
             rn = p.get("region_norm")
             if not (isinstance(rn, list) and len(rn) == 4):
                 continue
-            rect_pts = (rn[0] * W, rn[1] * H, rn[2] * W, rn[3] * H)
+            # Clamp model fractions to [0,1] and sort, so out-of-range or inverted
+            # coords can't produce empty/garbage crops.
+            try:
+                xs = sorted((max(0.0, min(1.0, float(rn[0]))), max(0.0, min(1.0, float(rn[2])))))
+                ys = sorted((max(0.0, min(1.0, float(rn[1]))), max(0.0, min(1.0, float(rn[3])))))
+            except (TypeError, ValueError):
+                continue
+            if xs[1] - xs[0] < 0.01 or ys[1] - ys[0] < 0.01:
+                continue  # degenerate region
+            rect_pts = (xs[0] * W, ys[0] * H, xs[1] * W, ys[1] * H)
             is_table = p.get("type") == "table" or p.get("data_kind") == "duty_cycle_matrix"
             snapped = snap_rect_to_words(page, rect_pts) if is_table else None
             if snapped:

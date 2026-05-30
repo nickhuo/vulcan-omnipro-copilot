@@ -31,6 +31,7 @@ export default function ReviewClient({
 }) {
   const [items, setItems] = useState(proposals);
   const [busy, setBusy] = useState<string | null>(null);
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   function patch(id: string, fn: (p: ProposalView) => ProposalView) {
     setItems((prev) => prev.map((p) => (p.id === id ? fn(p) : p)));
@@ -45,9 +46,14 @@ export default function ReviewClient({
         body: JSON.stringify({ proposalId: p.id, action, caption: p.caption, type: p.type }),
       });
       const data = await res.json();
-      patch(p.id, (x) => ({ ...x, status: data.ok ? data.status : x.status }));
-    } catch {
-      /* leave status unchanged on network error */
+      if (data.ok) {
+        patch(p.id, (x) => ({ ...x, status: data.status }));
+        setErrors((e) => ({ ...e, [p.id]: "" }));
+      } else {
+        setErrors((e) => ({ ...e, [p.id]: data.error || `failed (${res.status})` }));
+      }
+    } catch (e) {
+      setErrors((m) => ({ ...m, [p.id]: e instanceof Error ? e.message : "network error" }));
     } finally {
       setBusy(null);
     }
@@ -115,6 +121,9 @@ export default function ReviewClient({
                     style={{ width: "100%", marginTop: 3, background: "var(--steel-800)", color: "#e7ecf3", border: "1px solid var(--steel-600)", borderRadius: 7, padding: "7px 9px", fontSize: 13 }}
                   />
                 </label>
+                {errors[p.id] ? (
+                  <div style={{ fontSize: 12, color: "var(--pos)" }}>⚠ {errors[p.id]}</div>
+                ) : null}
                 <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
                   <label style={{ fontSize: 11, color: "#8b95a3", display: "flex", gap: 6, alignItems: "center" }}>
                     Type
