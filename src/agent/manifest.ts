@@ -16,6 +16,12 @@ const TENANTS_DIR = join(process.cwd(), "data", "tenants");
 // manifest to tenant B — this Map keeps them isolated.
 const cache = new Map<string, Manifest>();
 
+/** Drop a tenant's cached manifest so the next read reflects an on-disk edit
+ *  (used by the review app after it accepts a figure into the manifest). */
+export function invalidateManifest(tenantId: string): void {
+  cache.delete(tenantId);
+}
+
 /** Tenant ids must be filesystem-safe: lowercase alphanumeric + hyphen only.
  *  This is the path-traversal guard — a `tenantId` like `../secrets` is rejected. */
 export function isValidTenantId(tenantId: string): boolean {
